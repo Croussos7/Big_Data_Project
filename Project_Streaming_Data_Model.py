@@ -350,73 +350,7 @@ Example: Fetch Magnificent 7 from Twelve Data and calculate features.
 Magnificent 7 tickers (commonly):
 AAPL, MSFT, AMZN, GOOGL, META, NVDA, TSLA
 
-Prereqs:
-  pip install pandas numpy requests pyarrow
 """
-
-def fetch_twelve_data_timeseries(symbol: str, interval: str = "5min", outputsize: int = 5000) -> pd.DataFrame:
-    params = {
-        "symbol": symbol,
-        "interval": interval,
-        "outputsize": outputsize,
-        "apikey": API_KEY,
-        "format": "JSON",
-    }
-    r = requests.get(TD_BASE, params=params, timeout=30)
-    r.raise_for_status()
-    payload = r.json()
-
-    if "values" not in payload:
-        raise RuntimeError(f"Twelve Data error for {symbol}: {payload}")
-
-    df = pd.DataFrame(payload["values"])
-    if df.empty:
-        raise RuntimeError(f"No data returned for {symbol}")
-
-    df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
-    for c in ["open", "high", "low", "close", "volume"]:
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-
-    df = df.dropna(subset=["datetime", "close"]).sort_values("datetime").reset_index(drop=True)
-    df["ticker"] = symbol
-    return df
-
-
-def fetch_many(tickers, interval="5min", outputsize=5000, throttle_seconds=0.35) -> pd.DataFrame:
-    dfs = []
-    for t in tickers:
-        print(f"Fetching {t}...")
-        dfs.append(fetch_twelve_data_timeseries(t, interval=interval, outputsize=outputsize))
-        time.sleep(throttle_seconds)
-    return pd.concat(dfs, ignore_index=True)
-
-
-def compute_features_per_ticker(df: pd.DataFrame, vol_short=12, vol_long=48, ma_window=12) -> pd.DataFrame:
-    required = {"ticker", "datetime", "high", "low", "close"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Missing required columns: {missing}")
-
-    df = df.sort_values(["ticker", "datetime"]).copy()
-    g = df.groupby("ticker", group_keys=False)
-
-    # log return
-    df["ret_1"] = g["close"].apply(lambda s: np.log(s / s.shift(1)))
-
-    # rolling vol of returns
-    df[f"vol_{vol_short}"] = g["ret_1"].apply(lambda s: s.rolling(vol_short).std())
-    df[f"vol_{vol_long}"] = g["ret_1"].apply(lambda s: s.rolling(vol_long).std())
-
-    # moving average ratio
-    df[f"sma_{ma_window}"] = g["close"].apply(lambda s: s.rolling(ma_window).mean())
-    df[f"ma_ratio_{ma_window}"] = df["close"] / df[f"sma_{ma_window}"]
-
-    # intrabar range
-    df["range_1"] = (df["high"] - df["low"]) / df["close"]
-
-    return df
-
 
 if __name__ == "__main__":
     MAG7 = ["AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "TSLA"]
