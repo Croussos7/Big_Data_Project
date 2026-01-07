@@ -306,7 +306,7 @@ def train_hmm(feat_df: pd.DataFrame, cols: list[str], n_states: int = 3):
 # 4) Main: fetch -> features -> train -> print examples
 # -------------------------
 def main():
-    api_key = os.environ.get("87bd43db037d44059f94c62f5da145dd")
+    api_key = "87bd43db037d44059f94c62f5da145dd"
     if not api_key:
         raise SystemExit("Missing TWELVE_API_KEY environment variable.")
 
