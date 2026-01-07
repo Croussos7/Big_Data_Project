@@ -6,7 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="Initial setup and class for stream">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Project_Streaming_Data_Model.py" beforeDir="false" afterPath="$PROJECT_DIR$/Project_Streaming_Data_Model.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mag7_5min_with_features.parquet" beforeDir="false" afterPath="$PROJECT_DIR$/mag7_5min_with_features.parquet" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -113,7 +112,15 @@
       <option name="project" value="LOCAL" />
       <updated>1767715151264</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="Initial setup and class for stream">
+      <option name="closed" value="true" />
+      <created>1767716698226</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1767716698226</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
