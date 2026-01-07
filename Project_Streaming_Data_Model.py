@@ -376,3 +376,4 @@ if __name__ == "__main__":
 
 
     '''commit'''
+    '''Change approach to fit SPY only and detect regimes'''
