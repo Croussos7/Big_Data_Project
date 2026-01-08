@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="creating a second file">
+    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="Model Training&#10;Load model into gcs&#10;Create Publisher in Pub/Sub">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" beforeDir="false" afterPath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" afterDir="false" />
     </list>
@@ -165,7 +165,15 @@
       <option name="project" value="LOCAL" />
       <updated>1767815896996</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Model Training&#10;Load model into gcs&#10;Create Publisher in Pub/Sub">
+      <option name="closed" value="true" />
+      <created>1767878221587</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1767878221587</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -187,6 +195,7 @@
     <MESSAGE value="Initial setup and class for stream&#10;2nd Commit" />
     <MESSAGE value="Changing methodology to SPY" />
     <MESSAGE value="creating a second file" />
-    <option name="LAST_COMMIT_MESSAGE" value="creating a second file" />
+    <MESSAGE value="Model Training&#10;Load model into gcs&#10;Create Publisher in Pub/Sub" />
+    <option name="LAST_COMMIT_MESSAGE" value="Model Training&#10;Load model into gcs&#10;Create Publisher in Pub/Sub" />
   </component>
 </project>

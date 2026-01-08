@@ -478,10 +478,20 @@ def fetch_latest_bar(symbol="SPY", interval="5min"):
     }
 
 def publish_bar(bar: dict):
+    event_id = f'{bar["symbol"]}:{bar["interval"]}:{bar["datetime"]}'
     payload = json.dumps(bar).encode("utf-8")
-    future = publisher.publish(topic_path, payload, symbol=bar["symbol"])
-    msg_id = future.result()
-    print("Published bar:", bar["datetime"], "msg_id:", msg_id)
+
+    future = publisher.publish(
+        topic_path,
+        payload,
+        symbol=bar["symbol"],
+        interval=bar["interval"],
+        event_id=event_id,
+    )
+
+    future.add_done_callback(
+        lambda f: print("Published bar:", bar["datetime"], "msg_id:", f.result())
+    )
 
 def EXECUTE():
     last_dt = None
