@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="Changing methodology to SPY">
+    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="creating a second file">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" beforeDir="false" afterPath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" afterDir="false" />
     </list>
@@ -39,7 +39,7 @@
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "master",
-    "last_opened_file_path": "C:/Users/crous/MSc DATA SCIENCE/BIG DATA/Big_Data_Project",
+    "last_opened_file_path": "C:/Users/crous/MSc DATA SCIENCE/BIG DATA/Big_Data_Project/Project_Streaming_Data_Model2.py",
     "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings"
   }
 }]]></component>
@@ -62,7 +62,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Project_Streaming_Data_Model.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -157,7 +157,15 @@
       <option name="project" value="LOCAL" />
       <updated>1767815185479</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="creating a second file">
+      <option name="closed" value="true" />
+      <created>1767815896996</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1767815896996</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -178,6 +186,7 @@
     <MESSAGE value="Initial setup and class for stream" />
     <MESSAGE value="Initial setup and class for stream&#10;2nd Commit" />
     <MESSAGE value="Changing methodology to SPY" />
-    <option name="LAST_COMMIT_MESSAGE" value="Changing methodology to SPY" />
+    <MESSAGE value="creating a second file" />
+    <option name="LAST_COMMIT_MESSAGE" value="creating a second file" />
   </component>
 </project>

@@ -26,7 +26,9 @@ required_packages = [
     "twelvedata",
     "websocket-client",
     "pyarrow",
-    "hmmlearn"
+    "hmmlearn",
+    "google-cloud-storage",
+    "google-cloud-pubsub"
 ]
 
 pip_install(required_packages)
@@ -172,6 +174,9 @@ import requests
 
 from sklearn.preprocessing import StandardScaler
 from hmmlearn.hmm import GaussianHMM
+import joblib
+from pathlib import Path
+
 
 
 REST_BASE = "https://api.twelvedata.com/time_series"
@@ -302,6 +307,23 @@ def train_hmm(feat_df: pd.DataFrame, cols: list[str], n_states: int = 3):
     return scaler, hmm, model_df, float(logprob)
 
 
+def save_artifacts(path: str, scaler, hmm, cols, interval: str, symbol: str, n_states: int):
+    bundle = {
+        "scaler": scaler,
+        "hmm": hmm,
+        "feature_cols": cols,
+        "interval": interval,
+        "symbol": symbol,
+        "n_states": n_states,
+        "version": 1,
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(bundle, path)
+    print(f"Saved model bundle -> {path}")
+
+
+
+
 # -------------------------
 # 4) Main: fetch -> features -> train -> print examples
 # -------------------------
@@ -366,7 +388,116 @@ def main():
     print(model_df["regime"].value_counts().sort_index().to_string())
 
     print("\nDone.")
+    # SAVE MODEL HERE (inside main)
 
+    save_artifacts(
+    path="artifacts/hmm_spy_5min.joblib",
+    scaler=scaler,
+    hmm=hmm,
+    cols=cols,
+    interval=interval,
+    symbol=symbol,
+    n_states=n_states,
+                    )
 
 if __name__ == "__main__":
     main()
+
+
+from pathlib import Path
+from google.cloud import storage
+
+BASE_DIR = Path(r"C:\Users\crous\MSc DATA SCIENCE\BIG DATA\Big_Data_Project")
+LOCAL_MODEL_PATH = BASE_DIR / "artifacts" / "hmm_spy_5min.joblib"
+
+from pathlib import Path
+from google.cloud import storage
+
+KEY_PATH = r"C:\Users\crous\MSc DATA SCIENCE\BIG DATA\big-data-480618-a0ab1a62384c.json"
+
+def upload_to_gcs_with_key(bucket_name: str, local_path: Path, gcs_path: str):
+    client = storage.Client.from_service_account_json(KEY_PATH)
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(gcs_path)
+    blob.upload_from_filename(str(local_path))
+    print(f"Uploaded to gs://{bucket_name}/{gcs_path}")
+
+LOCAL_MODEL_PATH = Path(
+    r"C:\Users\crous\MSc DATA SCIENCE\BIG DATA\Big_Data_Project\artifacts\hmm_spy_5min.joblib"
+)
+
+upload_to_gcs_with_key(
+    bucket_name="project-bucket-cr",
+    local_path=LOCAL_MODEL_PATH,
+    gcs_path="models/hmm_spy_5min.joblib",
+)
+
+
+import json
+import time
+import requests
+from datetime import datetime, timezone
+from google.cloud import pubsub_v1
+
+PROJECT_ID = "big-data-480618"
+TOPIC_ID = "spy-bars"
+
+PUBSUB_KEY = KEY_PATH
+TWELVE_API_KEY = "87bd43db037d44059f94c62f5da145dd"
+REST_BASE = "https://api.twelvedata.com/time_series"
+
+publisher = pubsub_v1.PublisherClient.from_service_account_file(PUBSUB_KEY)
+topic_path = publisher.topic_path(PROJECT_ID, TOPIC_ID)
+
+def fetch_latest_bar(symbol="SPY", interval="5min"):
+    params = {
+        "symbol": symbol,
+        "interval": interval,
+        "outputsize": 1,
+        "apikey": TWELVE_API_KEY,
+        "format": "JSON",
+    }
+    r = requests.get(REST_BASE, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+    if "values" not in data or not data["values"]:
+        raise RuntimeError(f"Bad response: {data}")
+
+    bar = data["values"][0]  # newest
+    # normalize
+    return {
+        "symbol": symbol,
+        "interval": interval,
+        "datetime": bar["datetime"],  # string
+        "open": float(bar["open"]),
+        "high": float(bar["high"]),
+        "low": float(bar["low"]),
+        "close": float(bar["close"]),
+        "volume": float(bar["volume"]),
+        "ingested_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+def publish_bar(bar: dict):
+    payload = json.dumps(bar).encode("utf-8")
+    future = publisher.publish(topic_path, payload, symbol=bar["symbol"])
+    msg_id = future.result()
+    print("Published bar:", bar["datetime"], "msg_id:", msg_id)
+
+def EXECUTE():
+    last_dt = None
+    while True:
+        try:
+            bar = fetch_latest_bar()
+            if bar["datetime"] != last_dt:
+                publish_bar(bar)
+                last_dt = bar["datetime"]
+                print("BAR:", bar)
+
+            else:
+                print("No new bar yet.")
+        except Exception as e:
+            print("Publisher error:", repr(e))
+        time.sleep(60)
+
+if __name__ == "__main__":
+    EXECUTE()
