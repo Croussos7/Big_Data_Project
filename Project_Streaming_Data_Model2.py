@@ -326,7 +326,7 @@ def train_hmm(feat_df: pd.DataFrame, cols: list[str], n_states: int = 3):
 
 
 
-def save_artifacts(path, scaler, hmm, cols, interval, symbol, n_states):
+def save_artifacts(path, scaler, hmm, cols, interval, symbol, n_states, state_names):
     bundle = {
         "scaler": scaler,
         "hmm": hmm,
@@ -334,9 +334,13 @@ def save_artifacts(path, scaler, hmm, cols, interval, symbol, n_states):
         "interval": interval,
         "symbol": symbol,
         "n_states": n_states,
+        "state_names": state_names,
         "feature_spec": FEATURE_SPEC,
         "version": 1,
     }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(bundle, path)
+    print(f"Saved model bundle -> {path}")
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(bundle, path)
     print(f"Saved model bundle -> {path}")
@@ -482,14 +486,15 @@ def RUN_PIPELINE():
 
     # Save Artifacts
     save_artifacts(
-    path="artifacts/hmm_spy_5min.joblib",
-    scaler=scaler,
-    hmm=hmm,
-    cols=cols,
-    interval=interval,
-    symbol=symbol,
-    n_states=n_states,
-                    )
+        path="artifacts/hmm_spy_5min.joblib",
+        scaler=scaler,
+        hmm=hmm,
+        cols=cols,
+        interval=interval,
+        symbol=symbol,
+        n_states=n_states,
+        state_names=state_names,
+    )
 
 
 RUN_PIPELINE()
