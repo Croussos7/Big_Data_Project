@@ -240,10 +240,45 @@ def RUN_PIPELINE():
     # (3) Train HMM
     scaler, hmm, model_df, logprob = train_hmm(feats, cols, n_states=n_states)
 
+    state_names = [
+        "Calm / Drift",
+        "Directional / Trending",
+        "Stress"
+    ]
+
+    # Safety check
+    assert len(state_names) == hmm.n_components, \
+        "Number of state names must match hmm.n_components"
+
+    # -------------------------------------------------
+    # Print training info
+    # -------------------------------------------------
     print("\n=== MODEL TRAINED ===")
     print(f"Training logprob (total): {logprob:.3f}")
+
+    # -------------------------------------------------
+    # Transition matrix with theoretical definitions
+    # -------------------------------------------------
     print("\n--- Transition matrix (transmat_) ---")
-    print(pd.DataFrame(hmm.transmat_).to_string(index=False, header=False))
+    print("Rows = FROM state | Columns = TO state")
+
+    transmat_df = pd.DataFrame(
+        hmm.transmat_,
+        index=state_names,  # from-state
+        columns=state_names  # to-state
+    )
+
+    print(transmat_df.to_string())
+
+    # -------------------------------------------------
+    # Optional: explicit index → regime mapping
+    # -------------------------------------------------
+    print("\nState definitions:")
+    for i, name in enumerate(state_names):
+        print(f"State {i}: {name}")
+
+
+
 
     print("\n--- State means (in *scaled* feature space) ---")
     # hmm.means_ is in scaled space because we fit HMM on Xz
