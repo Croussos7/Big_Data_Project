@@ -4,7 +4,7 @@ import subprocess
 import time
 import threading
 from typing import Callable, Any, List, Optional
-# ----------------- AUTO-INSTALL DEPENDENCIES -----------------
+# ----------------- INSTALL PACKAGES -----------------
 
 def pip_install(packages):
     """
@@ -85,49 +85,48 @@ def fetch_twelvedata_history(symbol: str, interval: str, outputsize: int, api_ke
 
 
 # -------------------------
-# 2) Feature engineering (single-ticker, streamable)
+# 2) Feature extraction
 # -------------------------
 def compute_features_from_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy().sort_values("datetime").reset_index(drop=True)
 
-    # Log returns
+    # 1. Log returns
     df["log_close"] = np.log(df["close"])
     df["ret_1"] = df["log_close"].diff()
 
-    # Multi-horizon returns (trend)
+    # 2. Multi-horizon returns (trend)
     df["ret_12"] = df["log_close"].diff(12)   # ~1h if 5-min bars
     df["ret_48"] = df["log_close"].diff(48)   # ~4h if 5-min bars
 
-    # Realized volatility (std of returns)
+    # 3. Realized volatility becoming stationary by taking the logs (rolling standard deviation of 1-bar returns)
     df["rv_12"] = df["ret_1"].rolling(12).std(ddof=1)
     df["rv_48"] = df["ret_1"].rolling(48).std(ddof=1)
     df["rv_156"] = df["ret_1"].rolling(156).std(ddof=1)  # ~2 days @ 5m
 
-    # Stabilize volatility distributions
     df["log_rv_12"] = np.log(df["rv_12"] + 1e-12)
     df["log_rv_48"] = np.log(df["rv_48"] + 1e-12)
     df["log_rv_156"] = np.log(df["rv_156"] + 1e-12)
 
-    # Moving averages / trend ratios
+    # 4. Moving averages / trend ratios
     ma12 = df["close"].rolling(12).mean()
     ma48 = df["close"].rolling(48).mean()
     df["ma_ratio_12"] = df["close"] / (ma12 + 1e-12)
     df["ma_ratio_48"] = df["close"] / (ma48 + 1e-12)
 
-    # Intrabar range / stress
+    # 5. Intrabar range / stress -- Normalized by 'close' to make it comparable accross price levels
     df["range_1"] = (df["high"] - df["low"]) / (df["close"] + 1e-12)
 
-    # Volume shock: z-score vs 48-bar rolling window
+    # 6. Volume shock: z-score vs 48-bar rolling window - How different is the volume in terms of std from the last 48 candles mean
     v = df["volume"].astype(float)
     v_mu = v.rolling(48).mean()
     v_sd = v.rolling(48).std(ddof=1)
     df["vol_z_48"] = (v - v_mu) / (v_sd + 1e-12)
 
-    # Dollar volume (liquidity proxy)
+    # 7. Dollar volume (liquidity proxy)
     df["dollar_vol"] = df["close"] * v
     df["log_dollar_vol"] = np.log(df["dollar_vol"] + 1e-12)
 
-    # Jump / tail proxy: move size relative to recent vol
+    # 8. Jump / tail proxy - move size relative to recent vol
     df["jump_score"] = np.abs(df["ret_1"]) / (df["rv_48"] + 1e-12)
 
     return df
@@ -139,6 +138,7 @@ def feature_cols():
         "ret_12",
         "log_rv_12",
         "log_rv_48",
+        "log_rv_156",
         "ma_ratio_12",
         "ma_ratio_48",
         "range_1",
@@ -168,7 +168,7 @@ def train_hmm(feat_df: pd.DataFrame, cols: list[str], n_states: int = 3):
     )
     hmm.fit(Xz)
 
-    # Posteriors + predicted states (for demo/printing)
+    # Posteriors + predicted states
     logprob, post = hmm.score_samples(Xz)  # post: (T, K)
     states = post.argmax(axis=1)
 
@@ -196,7 +196,7 @@ def save_artifacts(path: str, scaler, hmm, cols, interval: str, symbol: str, n_s
     print(f"Saved model bundle -> {path}")
 
 # -------------------------
-# 4) Main: fetch -> features -> train -> print examples
+# 4) fetch -> compute features -> train --- Whole Pipeline with printed examples
 # -------------------------
 def RUN_PIPELINE():
     api_key = "87bd43db037d44059f94c62f5da145dd"
@@ -254,13 +254,13 @@ def RUN_PIPELINE():
     view_cols = ["datetime", "close"] + ["regime"] + [f"p_state_{k}" for k in range(n_states)]
     print(model_df[view_cols].tail(10).to_string(index=False))
 
-    # Optional: show regime counts
+    # regime counts
     print("\n--- Regime counts ---")
     print(model_df["regime"].value_counts().sort_index().to_string())
 
     print("\nDone.")
-    # SAVE MODEL HERE (inside main)
 
+    # Save Artifacts
     save_artifacts(
     path="artifacts/hmm_spy_5min.joblib",
     scaler=scaler,
@@ -271,8 +271,11 @@ def RUN_PIPELINE():
     n_states=n_states,
                     )
 
+
 RUN_PIPELINE()
 
+
+# ----------------- UPLOAD INTO GOOGLE CLOUD -----------------
 
 from pathlib import Path
 from google.cloud import storage
@@ -301,86 +304,3 @@ upload_to_gcs_with_key(
     local_path=LOCAL_MODEL_PATH,
     gcs_path="models/hmm_spy_5min.joblib",
 )
-
-
-import json
-import time
-import requests
-from datetime import datetime, timezone
-from google.cloud import pubsub_v1
-
-PROJECT_ID = "big-data-480618"
-TOPIC_ID = "spy-bars"
-
-PUBSUB_KEY = KEY_PATH
-TWELVE_API_KEY = "87bd43db037d44059f94c62f5da145dd"
-REST_BASE = "https://api.twelvedata.com/time_series"
-
-publisher = pubsub_v1.PublisherClient.from_service_account_file(PUBSUB_KEY)
-
-topic_path = publisher.topic_path(PROJECT_ID, TOPIC_ID)
-
-def fetch_latest_bar(symbol="SPY", interval="5min"):
-    params = {
-        "symbol": symbol,
-        "interval": interval,
-        "outputsize": 1,
-        "apikey": TWELVE_API_KEY,
-        "format": "JSON",
-    }
-    r = requests.get(REST_BASE, params=params, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    if "values" not in data or not data["values"]:
-        raise RuntimeError(f"Bad response: {data}")
-
-    bar = data["values"][0]  # newest
-    # normalize
-    return {
-        "symbol": symbol,
-        "interval": interval,
-        "datetime": bar["datetime"],  # string
-        "open": float(bar["open"]),
-        "high": float(bar["high"]),
-        "low": float(bar["low"]),
-        "close": float(bar["close"]),
-        "volume": float(bar["volume"]),
-        "ingested_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-def publish_bar(bar: dict):
-    event_id = f'{bar["symbol"]}:{bar["interval"]}:{bar["datetime"]}'
-    payload = json.dumps(bar).encode("utf-8")
-
-    future = publisher.publish(
-        topic_path,
-        payload,
-        symbol=bar["symbol"],
-        interval=bar["interval"],
-        event_id=event_id,
-    )
-
-    future.add_done_callback(
-        lambda f: print("Published bar:", bar["datetime"], "msg_id:", f.result())
-    )
-
-def EXECUTE():
-    last_dt = None
-    while True:
-        try:
-            bar = fetch_latest_bar()
-            if bar["datetime"] != last_dt:
-                publish_bar(bar)
-                last_dt = bar["datetime"]
-                print("BAR:", bar)
-
-            else:
-                print("No new bar yet.")
-        except Exception as e:
-            print("Publisher error:", repr(e))
-        time.sleep(60)
-
-if __name__ == "__main__":
-    EXECUTE()
-
-
