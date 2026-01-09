@@ -4,10 +4,6 @@ import subprocess
 import time
 import threading
 from typing import Callable, Any, List, Optional
-
-
-
-
 # ----------------- AUTO-INSTALL DEPENDENCIES -----------------
 
 def pip_install(packages):
@@ -42,128 +38,6 @@ import pyarrow as pa
 print("pandas:", pd.__version__)
 print("pyarrow:", pa.__version__)
 
-# ----------------- STREAM CLASS -----------------
-
-class TwelveDataStream:
-    def __init__(
-        self,
-        api_key: str,
-        symbols: List[str],
-        on_event: Optional[Callable[[Any], None]] = None,
-        heartbeat_every: int = 10,
-    ):
-        self.api_key = api_key
-        self.symbols = symbols
-        self.on_event = on_event or self.default_on_event
-        self.heartbeat_every = heartbeat_every
-
-        self._td = TDClient(apikey=self.api_key)
-        self._ws = None
-        self._thread = None
-
-        self._stop_evt = threading.Event()
-        self._running = False
-
-    def default_on_event(self, event: Any) -> None:
-        print("EVENT:", event)
-
-    def _run(self) -> None:
-        self._running = True
-        self._stop_evt.clear()
-
-        try:
-            self._ws = self._td.websocket(on_event=self.on_event)
-
-            # If you see no events, try swapping order:
-            # self._ws.connect()
-            # self._ws.subscribe(self.symbols)
-            self._ws.subscribe(self.symbols)
-            self._ws.connect()
-
-            last_hb = time.time()
-
-            while not self._stop_evt.is_set():
-                now = time.time()
-                if now - last_hb >= self.heartbeat_every:
-                    try:
-                        self._ws.heartbeat()
-                    except Exception as e:
-                        print("heartbeat error:", repr(e))
-                    last_hb = now
-
-                time.sleep(0.1)
-
-        except Exception as e:
-            print("stream thread error:", repr(e))
-
-        finally:
-            try:
-                if self._ws is not None:
-                    try:
-                        self._ws.reset()
-                    except Exception:
-                        pass
-                    try:
-                        self._ws.disconnect()
-                    except Exception:
-                        pass
-            finally:
-                self._running = False
-
-    def start(self) -> None:
-        if self._running:
-            print("Stream already running.")
-            return
-
-        self._thread = threading.Thread(target=self._run, daemon=False)
-        self._thread.start()
-        print(f"Started Twelve Data stream for: {', '.join(self.symbols)}")
-
-    def stop(self, join_timeout: int = 5) -> None:
-        if not self._running:
-            print("Stream not running.")
-            return
-
-        print("Stop requested...")
-        self._stop_evt.set()
-
-        if self._thread is not None:
-            self._thread.join(timeout=join_timeout)
-
-        if self._running:
-            print("Still running (library thread likely didn’t exit cleanly).")
-        else:
-            print("Stream stopped.")
-
-
-# ----------------- CONFIG / USAGE -----------------
-
-# API_KEY = "87bd43db037d44059f94c62f5da145dd"
-#
-#
-# def handle_event(event: Any) -> None:
-#     print("EVENT:", event)
-
-
-# def main() -> None:
-#     symbols = ["AAPL"]
-#     stream = TwelveDataStream(API_KEY, symbols, on_event=handle_event, heartbeat_every=10)
-#
-#     stream.start()
-#
-#     # Keep alive so you see the streaming output in PyCharm Run console
-#     try:
-#         while True:
-#             time.sleep(1)
-#     except KeyboardInterrupt:
-#         stream.stop()
-#     finally:
-#         # Best-effort stop even if PyCharm terminates the run
-#         stream.stop()
-#
-#
-# if __name__ == "__main__":
-#     main()
 
 # ------------------ GET HISTORICAL DATA ------------------
 
@@ -321,13 +195,10 @@ def save_artifacts(path: str, scaler, hmm, cols, interval: str, symbol: str, n_s
     joblib.dump(bundle, path)
     print(f"Saved model bundle -> {path}")
 
-
-
-
 # -------------------------
 # 4) Main: fetch -> features -> train -> print examples
 # -------------------------
-def main():
+def RUN_PIPELINE():
     api_key = "87bd43db037d44059f94c62f5da145dd"
     if not api_key:
         raise SystemExit("Missing TWELVE_API_KEY environment variable.")
@@ -400,8 +271,7 @@ def main():
     n_states=n_states,
                     )
 
-if __name__ == "__main__":
-    main()
+RUN_PIPELINE()
 
 
 from pathlib import Path
@@ -447,6 +317,7 @@ TWELVE_API_KEY = "87bd43db037d44059f94c62f5da145dd"
 REST_BASE = "https://api.twelvedata.com/time_series"
 
 publisher = pubsub_v1.PublisherClient.from_service_account_file(PUBSUB_KEY)
+
 topic_path = publisher.topic_path(PROJECT_ID, TOPIC_ID)
 
 def fetch_latest_bar(symbol="SPY", interval="5min"):
@@ -511,3 +382,5 @@ def EXECUTE():
 
 if __name__ == "__main__":
     EXECUTE()
+
+
