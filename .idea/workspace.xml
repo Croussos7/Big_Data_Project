@@ -4,10 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="PUBLISHER&#10;SUBSCRIBER">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="choosing the number of states using information criteria">
       <change beforePath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" beforeDir="false" afterPath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Subscriber.py" beforeDir="false" afterPath="$PROJECT_DIR$/Subscriber.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -206,7 +204,15 @@
       <option name="project" value="LOCAL" />
       <updated>1767954903720</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="choosing the number of states using information criteria">
+      <option name="closed" value="true" />
+      <created>1767965174753</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1767965174753</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -230,6 +236,7 @@
     <MESSAGE value="creating a second file" />
     <MESSAGE value="Model Training&#10;Load model into gcs&#10;Create Publisher in Pub/Sub" />
     <MESSAGE value="PUBLISHER&#10;SUBSCRIBER" />
-    <option name="LAST_COMMIT_MESSAGE" value="PUBLISHER&#10;SUBSCRIBER" />
+    <MESSAGE value="choosing the number of states using information criteria" />
+    <option name="LAST_COMMIT_MESSAGE" value="choosing the number of states using information criteria" />
   </component>
 </project>

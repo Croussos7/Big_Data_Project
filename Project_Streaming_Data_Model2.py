@@ -393,10 +393,9 @@ def RUN_PIPELINE():
     print("\n--- HMM model selection ---")
     print(selection_df.to_string(index=False))
 
-
-
-    n_states = 6
-
+    best_k = int(selection_df.iloc[0]["K"])
+    n_states = best_k
+    print(f"\nChosen n_states by min BIC: {n_states}")
 
     print("=== OFFLINE TRAINING ===")
     print(f"Symbol: {symbol} | interval: {interval} | outputsize: {outputsize} | n_states: {n_states}")
@@ -442,34 +441,34 @@ def RUN_PIPELINE():
     for i, name in enumerate(state_names):
         print(f"State {i}: {name}")
 
-        # 1) Build a labeled transition matrix DataFrame
-        transmat_df = pd.DataFrame(
-            hmm.transmat_,
-            index=state_names,  # rows = FROM
-            columns=state_names  # cols = TO
-        )
+    # 1) Build a labeled transition matrix DataFrame
+    transmat_df = pd.DataFrame(
+        hmm.transmat_,
+        index=state_names,  # rows = FROM
+        columns=state_names  # cols = TO
+    )
 
-        print("\n--- Transition matrix (P(S_t -> S_{t+1})) ---")
-        print("Rows = FROM state | Columns = TO state")
+    print("\n--- Transition matrix (P(S_t -> S_{t+1})) ---")
+    print("Rows = FROM state | Columns = TO state")
 
 
-        print("\n--- Transition matrix (%) ---")
-        print((transmat_df * 100).round(2).to_string())
+    print("\n--- Transition matrix (%) ---")
+    print((transmat_df * 100).round(2).to_string())
 
-        # 3) Optional: show most likely next state for each state
-        next_state = transmat_df.idxmax(axis=1)
-        next_prob = transmat_df.max(axis=1)
-        print("\n--- Most likely next state from each state ---")
-        for s in state_names:
-            print(f"{s:30s} -> {next_state[s]:30s}  p={next_prob[s]:.3f}")
+    # 3) Optional: show most likely next state for each state
+    next_state = transmat_df.idxmax(axis=1)
+    next_prob = transmat_df.max(axis=1)
+    print("\n--- Most likely next state from each state ---")
+    for s in state_names:
+        print(f"{s:30s} -> {next_state[s]:30s}  p={next_prob[s]:.3f}")
 
-        # 4) Optional: self-persistence (diagonal) ranking
-        persistence = pd.Series(
-            {state_names[i]: float(hmm.transmat_[i, i]) for i in range(hmm.n_components)}
-        ).sort_values(ascending=False)
+    # 4) Optional: self-persistence (diagonal) ranking
+    persistence = pd.Series(
+        {state_names[i]: float(hmm.transmat_[i, i]) for i in range(hmm.n_components)}
+    ).sort_values(ascending=False)
 
-        print("\n--- State persistence P(stay) (diagonal) ---")
-        print(persistence.to_string())
+    print("\n--- State persistence P(stay) (diagonal) ---")
+    print(persistence.to_string())
 
     print("\n--- Last 10 timestamps: regimes + probabilities ---")
     view_cols = ["datetime", "close"] + ["regime"] + [f"p_state_{k}" for k in range(n_states)]
