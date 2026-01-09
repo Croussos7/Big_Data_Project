@@ -4,9 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="choosing the number of states using information criteria">
+    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="Final sub/pub without export of messages">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" beforeDir="false" afterPath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Subscriber.py" beforeDir="false" afterPath="$PROJECT_DIR$/Subscriber.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -280,7 +279,15 @@
       <option name="project" value="LOCAL" />
       <updated>1767966008970</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="Final sub/pub without export of messages">
+      <option name="closed" value="true" />
+      <created>1767975150741</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1767975150741</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -305,6 +312,7 @@
     <MESSAGE value="Model Training&#10;Load model into gcs&#10;Create Publisher in Pub/Sub" />
     <MESSAGE value="PUBLISHER&#10;SUBSCRIBER" />
     <MESSAGE value="choosing the number of states using information criteria" />
-    <option name="LAST_COMMIT_MESSAGE" value="choosing the number of states using information criteria" />
+    <MESSAGE value="Final sub/pub without export of messages" />
+    <option name="LAST_COMMIT_MESSAGE" value="Final sub/pub without export of messages" />
   </component>
 </project>
