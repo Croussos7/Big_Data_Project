@@ -6,28 +6,46 @@ import threading
 from typing import Callable, Any, List, Optional
 # ----------------- INSTALL PACKAGES -----------------
 
-def pip_install(packages):
+import sys
+import subprocess
+import importlib.util
+
+def ensure_packages(packages: dict[str, str]):
     """
-    Install packages into the SAME interpreter that is running this script.
+    Ensures required packages are installed in the current interpreter.
+
+    packages = {
+        "import_name": "pip-install-name",
+        ...
+    }
     """
-    for pkg in packages:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+    missing = []
 
+    for import_name, pip_name in packages.items():
+        if importlib.util.find_spec(import_name) is None:
+            missing.append(pip_name)
 
-required_packages = [
-    "numpy",
-    "pandas",
-    "scikit-learn",
-    "yfinance",
-    "twelvedata",
-    "websocket-client",
-    "pyarrow",
-    "hmmlearn",
-    "google-cloud-storage",
-    "google-cloud-pubsub"
-]
+    if missing:
+        print("Installing missing packages:", missing)
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", *missing]
+        )
+    else:
+        print("All required packages already installed.")
 
-pip_install(required_packages)
+ensure_packages({
+    "numpy": "numpy",
+    "pandas": "pandas",
+    "pyarrow": "pyarrow",
+    "sklearn": "scikit-learn",
+    "hmmlearn": "hmmlearn",
+    "requests": "requests",
+    "joblib": "joblib",
+    "google.cloud.storage": "google-cloud-storage",
+    "google.cloud.pubsub_v1": "google-cloud-pubsub",
+    "twelvedata": "twelvedata",
+})
+
 
 
 from twelvedata import TDClient
@@ -87,47 +105,99 @@ def fetch_twelvedata_history(symbol: str, interval: str, outputsize: int, api_ke
 # -------------------------
 # 2) Feature extraction
 # -------------------------
-def compute_features_from_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
+FEATURE_SPEC = {
+    "feature_version": "v1",
+    "bar_interval": "5min",
+    "windows": {
+        "ret_short": 1,
+        "ret_12": 12,
+        "ret_48": 48,
+        "rv_12": 12,
+        "rv_48": 48,
+        "rv_156": 156,
+        "ma_12": 12,
+        "ma_48": 48,
+        "vol_z": 48,
+    },
+    "transforms": {
+        "log_returns": True,
+        "log_realized_vol": True,
+        "log_dollar_vol": True,
+    },
+    "epsilon": 1e-12,
+}
+
+
+
+def compute_features_from_ohlcv_spec(df: pd.DataFrame, spec: dict) -> pd.DataFrame:
+    """
+    Computes features using the stored FeatureSpec.
+    This ensures training and streaming inference always match exactly.
+    """
     df = df.copy().sort_values("datetime").reset_index(drop=True)
 
-    # 1. Log returns
-    df["log_close"] = np.log(df["close"])
-    df["ret_1"] = df["log_close"].diff()
+    eps = float(spec["epsilon"])
+    w = spec["windows"]
+    t = spec["transforms"]
 
-    # 2. Multi-horizon returns (trend)
-    df["ret_12"] = df["log_close"].diff(12)   # ~1h if 5-min bars
-    df["ret_48"] = df["log_close"].diff(48)   # ~4h if 5-min bars
+    ret_12_w = int(w["ret_12"])
+    ret_48_w = int(w["ret_48"])
+    rv_12_w = int(w["rv_12"])
+    rv_48_w = int(w["rv_48"])
+    rv_156_w = int(w["rv_156"])
+    ma_12_w = int(w["ma_12"])
+    ma_48_w = int(w["ma_48"])
+    volz_w = int(w["vol_z"])
 
-    # 3. Realized volatility becoming stationary by taking the logs (rolling standard deviation of 1-bar returns)
-    df["rv_12"] = df["ret_1"].rolling(12).std(ddof=1)
-    df["rv_48"] = df["ret_1"].rolling(48).std(ddof=1)
-    df["rv_156"] = df["ret_1"].rolling(156).std(ddof=1)  # ~2 days @ 5m
+    # 1) Returns
+    if t.get("log_returns", True):
+        df["log_close"] = np.log(df["close"] + eps)
+        df["ret_1"] = df["log_close"].diff()
+        df["ret_12"] = df["log_close"].diff(ret_12_w)
+        df["ret_48"] = df["log_close"].diff(ret_48_w)
+    else:
+        df["ret_1"] = df["close"].pct_change()
+        df["ret_12"] = df["close"].pct_change(ret_12_w)
+        df["ret_48"] = df["close"].pct_change(ret_48_w)
 
-    df["log_rv_12"] = np.log(df["rv_12"] + 1e-12)
-    df["log_rv_48"] = np.log(df["rv_48"] + 1e-12)
-    df["log_rv_156"] = np.log(df["rv_156"] + 1e-12)
+    # 2) Realized volatility
+    df["rv_12"] = df["ret_1"].rolling(rv_12_w).std(ddof=1)
+    df["rv_48"] = df["ret_1"].rolling(rv_48_w).std(ddof=1)
+    df["rv_156"] = df["ret_1"].rolling(rv_156_w).std(ddof=1)
 
-    # 4. Moving averages / trend ratios
-    ma12 = df["close"].rolling(12).mean()
-    ma48 = df["close"].rolling(48).mean()
-    df["ma_ratio_12"] = df["close"] / (ma12 + 1e-12)
-    df["ma_ratio_48"] = df["close"] / (ma48 + 1e-12)
+    if t.get("log_realized_vol", True):
+        df["log_rv_12"] = np.log(df["rv_12"] + eps)
+        df["log_rv_48"] = np.log(df["rv_48"] + eps)
+        df["log_rv_156"] = np.log(df["rv_156"] + eps)
+    else:
+        df["log_rv_12"] = df["rv_12"]
+        df["log_rv_48"] = df["rv_48"]
+        df["log_rv_156"] = df["rv_156"]
 
-    # 5. Intrabar range / stress -- Normalized by 'close' to make it comparable accross price levels
-    df["range_1"] = (df["high"] - df["low"]) / (df["close"] + 1e-12)
+    # 3) Moving average ratios
+    ma12 = df["close"].rolling(ma_12_w).mean()
+    ma48 = df["close"].rolling(ma_48_w).mean()
+    df["ma_ratio_12"] = df["close"] / (ma12 + eps)
+    df["ma_ratio_48"] = df["close"] / (ma48 + eps)
 
-    # 6. Volume shock: z-score vs 48-bar rolling window - How different is the volume in terms of std from the last 48 candles mean
+    # 4) Range
+    df["range_1"] = (df["high"] - df["low"]) / (df["close"] + eps)
+
+    # 5) Volume z-score
     v = df["volume"].astype(float)
-    v_mu = v.rolling(48).mean()
-    v_sd = v.rolling(48).std(ddof=1)
-    df["vol_z_48"] = (v - v_mu) / (v_sd + 1e-12)
+    v_mu = v.rolling(volz_w).mean()
+    v_sd = v.rolling(volz_w).std(ddof=1)
+    df["vol_z_48"] = (v - v_mu) / (v_sd + eps)
 
-    # 7. Dollar volume (liquidity proxy)
+    # 6) Dollar volume
     df["dollar_vol"] = df["close"] * v
-    df["log_dollar_vol"] = np.log(df["dollar_vol"] + 1e-12)
+    if t.get("log_dollar_vol", True):
+        df["log_dollar_vol"] = np.log(df["dollar_vol"] + eps)
+    else:
+        df["log_dollar_vol"] = df["dollar_vol"]
 
-    # 8. Jump / tail proxy - move size relative to recent vol
-    df["jump_score"] = np.abs(df["ret_1"]) / (df["rv_48"] + 1e-12)
+    # 7) Jump score
+    df["jump_score"] = np.abs(df["ret_1"]) / (df["rv_48"] + eps)
 
     return df
 
@@ -148,9 +218,83 @@ def feature_cols():
     ]
 
 
+
 # -------------------------
 # 3) Train HMM
 # -------------------------
+
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from hmmlearn.hmm import GaussianHMM
+
+
+def hmm_model_selection(
+    feat_df: pd.DataFrame,
+    cols: list[str],
+    k_list: list[int],
+    covariance_type: str = "full",
+    n_iter: int = 500,
+    random_state: int = 42,
+):
+    """
+    Trains Gaussian HMMs for different numbers of states and compares them
+    using LogLik, AIC, and BIC.
+
+    Returns a DataFrame sorted by BIC (lower is better).
+    """
+    # Prepare data
+    model_df = feat_df.dropna(subset=cols).reset_index(drop=True)
+    X = model_df[cols].values.astype(float)
+
+    scaler = StandardScaler()
+    Xz = scaler.fit_transform(X)
+
+    T, D = Xz.shape
+    results = []
+
+    for K in k_list:
+        hmm = GaussianHMM(
+            n_components=K,
+            covariance_type=covariance_type,
+            n_iter=n_iter,
+            random_state=random_state,
+        )
+        hmm.fit(Xz)
+
+        loglik = hmm.score(Xz)
+
+        # ---- parameter count ----
+        if covariance_type == "full":
+            cov_params = D * (D + 1) // 2
+        else:
+            cov_params = D
+
+        n_params = (
+            (K - 1) +                 # initial probs
+            K * (K - 1) +             # transition matrix
+            K * D +                   # means
+            K * cov_params            # covariances
+        )
+
+        aic = -2 * loglik + 2 * n_params
+        bic = -2 * loglik + np.log(T) * n_params
+
+        results.append({
+            "K": K,
+            "loglik": loglik,
+            "AIC": aic,
+            "BIC": bic,
+            "n_params": n_params,
+        })
+
+    res_df = pd.DataFrame(results).sort_values("BIC").reset_index(drop=True)
+    return res_df
+
+
+
+
+
 def train_hmm(feat_df: pd.DataFrame, cols: list[str], n_states: int = 3):
     # Keep only rows where all features are available
     model_df = feat_df.dropna(subset=cols).reset_index(drop=True)
@@ -181,7 +325,8 @@ def train_hmm(feat_df: pd.DataFrame, cols: list[str], n_states: int = 3):
     return scaler, hmm, model_df, float(logprob)
 
 
-def save_artifacts(path: str, scaler, hmm, cols, interval: str, symbol: str, n_states: int):
+
+def save_artifacts(path, scaler, hmm, cols, interval, symbol, n_states):
     bundle = {
         "scaler": scaler,
         "hmm": hmm,
@@ -189,6 +334,7 @@ def save_artifacts(path: str, scaler, hmm, cols, interval: str, symbol: str, n_s
         "interval": interval,
         "symbol": symbol,
         "n_states": n_states,
+        "feature_spec": FEATURE_SPEC,
         "version": 1,
     }
     Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -206,10 +352,7 @@ def RUN_PIPELINE():
     symbol = "SPY"
     interval = "5min"
     outputsize = 5000
-    n_states = 3
 
-    print("=== OFFLINE TRAINING ===")
-    print(f"Symbol: {symbol} | interval: {interval} | outputsize: {outputsize} | n_states: {n_states}")
 
     # (1) Fetch
     bars = fetch_twelvedata_history(symbol, interval, outputsize, api_key)
@@ -219,8 +362,9 @@ def RUN_PIPELINE():
     print(bars.tail(5).to_string(index=False))
 
     # (2) Features
-    feats = compute_features_from_ohlcv(bars)
+    feats = compute_features_from_ohlcv_spec(bars, FEATURE_SPEC)
     cols = feature_cols()
+
 
     print("\n--- Feature columns used ---")
     print(cols)
@@ -238,17 +382,30 @@ def RUN_PIPELINE():
     print(feats.dropna(subset=cols)[cols].describe().to_string())
 
     # (3) Train HMM
+    k_candidates = [2, 3, 4, 5, 6]
+
+    selection_df = hmm_model_selection(
+        feat_df=feats,
+        cols=cols,
+        k_list=k_candidates,
+    )
+
+    print("\n--- HMM model selection ---")
+    print(selection_df.to_string(index=False))
+
+
+
+    n_states = 6
+
+
+    print("=== OFFLINE TRAINING ===")
+    print(f"Symbol: {symbol} | interval: {interval} | outputsize: {outputsize} | n_states: {n_states}")
+
     scaler, hmm, model_df, logprob = train_hmm(feats, cols, n_states=n_states)
 
-    state_names = [
-        "Calm / Drift",
-        "Directional / Trending",
-        "Stress"
-    ]
 
-    # Safety check
-    assert len(state_names) == hmm.n_components, \
-        "Number of state names must match hmm.n_components"
+
+
 
     # -------------------------------------------------
     # Print training info
@@ -256,34 +413,63 @@ def RUN_PIPELINE():
     print("\n=== MODEL TRAINED ===")
     print(f"Training logprob (total): {logprob:.3f}")
 
-    # -------------------------------------------------
-    # Transition matrix with theoretical definitions
-    # -------------------------------------------------
-    print("\n--- Transition matrix (transmat_) ---")
-    print("Rows = FROM state | Columns = TO state")
-
-    transmat_df = pd.DataFrame(
-        hmm.transmat_,
-        index=state_names,  # from-state
-        columns=state_names  # to-state
-    )
-
-    print(transmat_df.to_string())
-
-    # -------------------------------------------------
-    # Optional: explicit index → regime mapping
-    # -------------------------------------------------
-    print("\nState definitions:")
-    for i, name in enumerate(state_names):
-        print(f"State {i}: {name}")
-
-
 
 
     print("\n--- State means (in *scaled* feature space) ---")
     # hmm.means_ is in scaled space because we fit HMM on Xz
     means_scaled = pd.DataFrame(hmm.means_, columns=cols)
     print(means_scaled.to_string(index=True))
+
+
+
+    state_names = [
+        "Calm / Drift",
+        "Stress / Risk-Off",
+        "Low-Volatility Jumps / Event-Driven",
+        "Orderly Bull Trend",
+        "High-Volatility Bull / Momentum",
+        "Volatility without direction"
+    ]
+
+    # Safety check
+    assert len(state_names) == hmm.n_components, \
+        "Number of state names must match hmm.n_components"
+
+    # -------------------------------------------------
+    # explicit index → regime mapping
+    # -------------------------------------------------
+    print("\nState definitions:")
+    for i, name in enumerate(state_names):
+        print(f"State {i}: {name}")
+
+        # 1) Build a labeled transition matrix DataFrame
+        transmat_df = pd.DataFrame(
+            hmm.transmat_,
+            index=state_names,  # rows = FROM
+            columns=state_names  # cols = TO
+        )
+
+        print("\n--- Transition matrix (P(S_t -> S_{t+1})) ---")
+        print("Rows = FROM state | Columns = TO state")
+
+
+        print("\n--- Transition matrix (%) ---")
+        print((transmat_df * 100).round(2).to_string())
+
+        # 3) Optional: show most likely next state for each state
+        next_state = transmat_df.idxmax(axis=1)
+        next_prob = transmat_df.max(axis=1)
+        print("\n--- Most likely next state from each state ---")
+        for s in state_names:
+            print(f"{s:30s} -> {next_state[s]:30s}  p={next_prob[s]:.3f}")
+
+        # 4) Optional: self-persistence (diagonal) ranking
+        persistence = pd.Series(
+            {state_names[i]: float(hmm.transmat_[i, i]) for i in range(hmm.n_components)}
+        ).sort_values(ascending=False)
+
+        print("\n--- State persistence P(stay) (diagonal) ---")
+        print(persistence.to_string())
 
     print("\n--- Last 10 timestamps: regimes + probabilities ---")
     view_cols = ["datetime", "close"] + ["regime"] + [f"p_state_{k}" for k in range(n_states)]
