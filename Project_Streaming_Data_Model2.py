@@ -501,7 +501,7 @@ from google.cloud import storage
 BASE_DIR = Path(__file__).resolve().parents[0]
 
 LOCAL_MODEL_PATH = BASE_DIR / "artifacts" / "hmm_spy_5min.joblib"
-KEY_PATH = BASE_DIR/"big-data-480618-a0ab1a62384c.json"
+KEY_PATH = BASE_DIR/"KEY.json"
 
 def upload_to_gcs_with_key(bucket_name: str, local_path: Path, gcs_path: str):
     client = storage.Client.from_service_account_json(KEY_PATH)

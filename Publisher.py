@@ -17,7 +17,7 @@ TOPIC_ID = "spy-bars"
 
 # Explicit service-account key file (NO default credentials)
 BASE_DIR = Path(__file__).resolve().parents[0]
-PUBSUB_KEY = BASE_DIR/"big-data-480618-a0ab1a62384c.json"
+PUBSUB_KEY = BASE_DIR/"KEY.json"
 
 
 TWELVE_API_KEY = "87bd43db037d44059f94c62f5da145dd"
