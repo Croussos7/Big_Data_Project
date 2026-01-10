@@ -34,10 +34,10 @@ INFERENCE_TOPIC_ID = "spy-regime-inference"
 GCS_BUCKET = "project-bucket-cr"
 GCS_MODEL_BLOB = "models/hmm_spy_5min.joblib"
 
-BASE_DIR = Path(r"C:\Users\crous\MSc DATA SCIENCE\BIG DATA\Big_Data_Project")
+BASE_DIR = Path(__file__).resolve().parents[0]
 LOCAL_MODEL_PATH = BASE_DIR / "artifacts" / "hmm_spy_5min.joblib"
 
-KEY_PATH = Path(r"C:\Users\crous\MSc DATA SCIENCE\BIG DATA\big-data-480618-a0ab1a62384c.json")
+KEY_PATH = BASE_DIR/"big-data-480618-a0ab1a62384c.json"
 
 REST_BASE = "https://api.twelvedata.com/time_series"
 TWELVE_API_KEY = "87bd43db037d44059f94c62f5da145dd"

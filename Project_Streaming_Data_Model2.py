@@ -11,14 +11,7 @@ import subprocess
 import importlib.util
 
 def ensure_packages(packages: dict[str, str]):
-    """
-    Ensures required packages are installed in the current interpreter.
 
-    packages = {
-        "import_name": "pip-install-name",
-        ...
-    }
-    """
     missing = []
 
     for import_name, pip_name in packages.items():
@@ -505,13 +498,10 @@ RUN_PIPELINE()
 from pathlib import Path
 from google.cloud import storage
 
-BASE_DIR = Path(r"C:\Users\crous\MSc DATA SCIENCE\BIG DATA\Big_Data_Project")
+BASE_DIR = Path(__file__).resolve().parents[0]
+
 LOCAL_MODEL_PATH = BASE_DIR / "artifacts" / "hmm_spy_5min.joblib"
-
-from pathlib import Path
-from google.cloud import storage
-
-KEY_PATH = r"C:\Users\crous\MSc DATA SCIENCE\BIG DATA\big-data-480618-a0ab1a62384c.json"
+KEY_PATH = BASE_DIR/"big-data-480618-a0ab1a62384c.json"
 
 def upload_to_gcs_with_key(bucket_name: str, local_path: Path, gcs_path: str):
     client = storage.Client.from_service_account_json(KEY_PATH)
@@ -520,9 +510,6 @@ def upload_to_gcs_with_key(bucket_name: str, local_path: Path, gcs_path: str):
     blob.upload_from_filename(str(local_path))
     print(f"Uploaded to gs://{bucket_name}/{gcs_path}")
 
-LOCAL_MODEL_PATH = Path(
-    r"C:\Users\crous\MSc DATA SCIENCE\BIG DATA\Big_Data_Project\artifacts\hmm_spy_5min.joblib"
-)
 
 upload_to_gcs_with_key(
     bucket_name="project-bucket-cr",

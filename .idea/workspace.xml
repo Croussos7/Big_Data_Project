@@ -4,9 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="Final sub/pub without export of messages">
+    <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="Final sub">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Subscriber.py" beforeDir="false" afterPath="$PROJECT_DIR$/Subscriber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" beforeDir="false" afterPath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Publisher.py" beforeDir="false" afterPath="$PROJECT_DIR$/Publisher.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/historical_5min.parquet" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mag7_5min_with_features.parquet" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -287,7 +290,15 @@
       <option name="project" value="LOCAL" />
       <updated>1767975150741</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="Final sub">
+      <option name="closed" value="true" />
+      <created>1767986971958</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1767986971958</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -313,6 +324,7 @@
     <MESSAGE value="PUBLISHER&#10;SUBSCRIBER" />
     <MESSAGE value="choosing the number of states using information criteria" />
     <MESSAGE value="Final sub/pub without export of messages" />
-    <option name="LAST_COMMIT_MESSAGE" value="Final sub/pub without export of messages" />
+    <MESSAGE value="Final sub" />
+    <option name="LAST_COMMIT_MESSAGE" value="Final sub" />
   </component>
 </project>
