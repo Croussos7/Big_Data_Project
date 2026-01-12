@@ -49,15 +49,15 @@ All files and folders must remain in the same BASE directory. Moving files outsi
 
 To run the full pipeline:
 
-a) *Run the training script*
+a) *Run the training script* =>
 Trains the HMM, saves the model artifact, and uploads it to GCS.
 The script should exit successfully.
 
-b) *Run the Publisher*
+b) *Run the Publisher* =>
 Starts streaming market data (e.g. SPY).
 Candle updates occur every 5 minutes when the market is open.
 
-c) *Run the Subscriber*
+c) *Run the Subscriber* =>
 Must run in parallel with the Publisher.
 The Subscriber consumes published data, performs inference, and publishes results.
 
