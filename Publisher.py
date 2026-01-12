@@ -9,13 +9,10 @@ import requests
 from google.cloud import pubsub_v1
 
 
-# -------------------------
-# FIXED CONFIG (your project)
-# -------------------------
 PROJECT_ID = "big-data-480618"
 TOPIC_ID = "spy-bars"
 
-# Explicit service-account key file (NO default credentials)
+# Explicit service-account key file
 BASE_DIR = Path(__file__).resolve().parents[0]
 PUBSUB_KEY = BASE_DIR/"KEY.json"
 
@@ -28,7 +25,7 @@ REST_BASE = "https://api.twelvedata.com/time_series"
 SYMBOL = "SPY"
 INTERVAL = "5min"
 
-# Polling: 5-min bars don't change every second; 25-35s is a good compromise
+# Polling: 5-min bars
 POLL_SECONDS = 30
 
 
@@ -65,13 +62,13 @@ def fetch_last_closed_bar(symbol: str = SYMBOL, interval: str = INTERVAL) -> dic
     if "values" not in data or not data["values"] or len(data["values"]) < 1:
         raise RuntimeError(f"Bad response / not enough bars: {data}")
 
-    # values[0] is newest (possibly still forming), values[1] is last closed
+
     bar = data["values"][0]
 
     return {
         "symbol": symbol,
         "interval": interval,
-        "datetime": bar["datetime"],  # keep as provider string; subscriber parses it
+        "datetime": bar["datetime"],
         "open": float(bar["open"]),
         "high": float(bar["high"]),
         "low": float(bar["low"]),
@@ -126,7 +123,6 @@ def PUBLISHER():
         except Exception as e:
             print("Publisher error:", repr(e))
 
-        # small jitter prevents "thundering herd" patterns and rate spikes
         time.sleep(POLL_SECONDS + random.uniform(-3, 3))
 
 

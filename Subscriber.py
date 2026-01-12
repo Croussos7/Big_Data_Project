@@ -1,12 +1,9 @@
 """
-SUBSCRIBER + INFERENCE PUBLISHER (FULL, SMOOTHED REGIME ENGINE)
-
 - Subscribes to bar stream
-- Bootstraps recent bars (MANDATORY)
+- Bootstraps recent bars
 - Computes features identical to training
 - Applies HMM inference
 - Applies alpha-smoothed regime probabilities
-- Prints FULL p_state and p_next with names
 - Publishes inference JSON to Pub/Sub
 """
 
@@ -29,9 +26,9 @@ from google.cloud import pubsub_v1, storage
 # ============================================================
 PROJECT_ID = "big-data-480618"
 SUBSCRIPTION_ID = "sub-model2"
-INFERENCE_TOPIC_ID = "spy-regime-inference"
+INFERENCE_TOPIC_ID = "spy-regime-inference-v2"
 
-GCS_BUCKET = "project-bucket-cr"
+GCS_BUCKET = "project_bucket_big_data1"
 GCS_MODEL_BLOB = "models/hmm_spy_5min.joblib"
 
 BASE_DIR = Path(__file__).resolve().parents[0]
@@ -232,7 +229,7 @@ def infer(feats: pd.DataFrame) -> Optional[dict]:
 
 
 # ============================================================
-# BOOTSTRAP (MANDATORY)
+# BOOTSTRAP
 # ============================================================
 def fetch_recent_bars():
     params = {

@@ -416,52 +416,28 @@ def RUN_PIPELINE():
     means_scaled = pd.DataFrame(hmm.means_, columns=cols)
     print(means_scaled.to_string(index=True))
 
+    state_ids = list(range(hmm.n_components))
 
-
-    state_names = [
-        "Calm / Drift",
-        "Stress / Risk-Off",
-        "Low-Volatility Jumps / Event-Driven",
-        "Orderly Bull Trend",
-        "High-Volatility Bull / Momentum",
-        "Volatility without direction"
-    ]
-
-    # Safety check
-    assert len(state_names) == hmm.n_components, \
-        "Number of state names must match hmm.n_components"
-
-    # -------------------------------------------------
-    # explicit index → regime mapping
-    # -------------------------------------------------
-    print("\nState definitions:")
-    for i, name in enumerate(state_names):
-        print(f"State {i}: {name}")
-
-    # 1) Build a labeled transition matrix DataFrame
     transmat_df = pd.DataFrame(
         hmm.transmat_,
-        index=state_names,  # rows = FROM
-        columns=state_names  # cols = TO
+        index=state_ids,  # FROM state
+        columns=state_ids  # TO state
     )
 
     print("\n--- Transition matrix (P(S_t -> S_{t+1})) ---")
     print("Rows = FROM state | Columns = TO state")
-
-
-    print("\n--- Transition matrix (%) ---")
     print((transmat_df * 100).round(2).to_string())
 
-    # 3) Optional: show most likely next state for each state
+    # 3) show most likely next state for each state
     next_state = transmat_df.idxmax(axis=1)
     next_prob = transmat_df.max(axis=1)
     print("\n--- Most likely next state from each state ---")
-    for s in state_names:
-        print(f"{s:30s} -> {next_state[s]:30s}  p={next_prob[s]:.3f}")
+    for s in state_ids:
+        print(f"State {s:<3d} -> State {next_state[s]:<3d}  p={next_prob[s]:.3f}")
 
-    # 4) Optional: self-persistence (diagonal) ranking
+    # 4) self-persistence (diagonal) ranking
     persistence = pd.Series(
-        {state_names[i]: float(hmm.transmat_[i, i]) for i in range(hmm.n_components)}
+        {state_ids[i]: float(hmm.transmat_[i, i]) for i in range(hmm.n_components)}
     ).sort_values(ascending=False)
 
     print("\n--- State persistence P(stay) (diagonal) ---")
@@ -477,42 +453,17 @@ def RUN_PIPELINE():
 
     print("\nDone.")
 
-    # Save Artifacts
     save_artifacts(
-        path="artifacts/hmm_spy_5min.joblib",
-        scaler=scaler,
-        hmm=hmm,
-        cols=cols,
-        interval=interval,
-        symbol=symbol,
-        n_states=n_states,
-        state_names=state_names,
+    path="artifacts/hmm_spy_5min.joblib",
+    scaler=scaler,
+    hmm=hmm,
+    cols=cols,
+    interval=interval,
+    symbol=symbol,
+    n_states=n_states,
+    state_names=[]
     )
 
+if __name__ == "__main__":
+    RUN_PIPELINE()
 
-RUN_PIPELINE()
-
-
-# ----------------- UPLOAD INTO GOOGLE CLOUD -----------------
-
-from pathlib import Path
-from google.cloud import storage
-
-BASE_DIR = Path(__file__).resolve().parents[0]
-
-LOCAL_MODEL_PATH = BASE_DIR / "artifacts" / "hmm_spy_5min.joblib"
-KEY_PATH = BASE_DIR/"KEY.json"
-
-def upload_to_gcs_with_key(bucket_name: str, local_path: Path, gcs_path: str):
-    client = storage.Client.from_service_account_json(KEY_PATH)
-    bucket = client.bucket(bucket_name)
-    blob = bucket.blob(gcs_path)
-    blob.upload_from_filename(str(local_path))
-    print(f"Uploaded to gs://{bucket_name}/{gcs_path}")
-
-
-upload_to_gcs_with_key(
-    bucket_name="project-bucket-cr",
-    local_path=LOCAL_MODEL_PATH,
-    gcs_path="models/hmm_spy_5min.joblib",
-)
