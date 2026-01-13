@@ -22,10 +22,13 @@ The repository contains the following components:
    Subscribes to the streaming data, performs feature computation and HMM inference, and publishes regime probabilities and next-state estimates to a GCS topic.  
    A separate subscription consumes this data and loads it directly into **BigQuery** for analysis and visualization.
 
-4. **Saved Artifacts**  
+4. **Save Artifacts**  
+   Names regimes, saves artifacts and uploads to Google Cloud
+
+5. **Saved Artifacts**  
    Contains trained model artifacts (e.g. serialized HMM models) used during live inference.
 
-5. **GCS Service Account Key**  
+6. **GCS Service Account Key**  
    Used to authenticate and upload data and artifacts to **Google Cloud Storage (GCS)**.
 
 ---
@@ -45,13 +48,9 @@ All files and folders must remain in the same BASE directory. Moving files outsi
 
 2. Environment Setup => Python 3.9+ is recommended. Required packages are installed via pip (see training script first few lines). The GCS Service Account Key, should be named ***"KEY.json"***
    
-4. Execution Order
+4. Execution
 
-To run the full pipeline:
-
-a) *Run the training script* =>
-Trains the HMM, saves the model artifact, and uploads it to GCS.
-The script should exit successfully.
+Do not rerun the training or saving model script. The model should be saved in the denoted bucket.
 
 b) *Run the Publisher* =>
 Starts streaming market data (e.g. SPY).
@@ -59,7 +58,7 @@ Candle updates occur every 5 minutes when the market is open.
 
 c) *Run the Subscriber* =>
 Must run in parallel with the Publisher.
-The Subscriber consumes published data, performs inference, and publishes results.
+The Subscriber consumes published data, performs inference, and publishes results into the inference topic.
 
 When running locally, this may require:
 
