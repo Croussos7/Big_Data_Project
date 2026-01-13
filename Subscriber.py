@@ -1,9 +1,12 @@
 """
+SUBSCRIBER + ONLINE INFERENCE (RETURN-BIASED POSTERIOR)
+
 - Subscribes to bar stream
 - Bootstraps recent bars
-- Computes features identical to training
-- Applies HMM inference
-- Applies alpha-smoothed regime probabilities
+- Computes rolling features ONLY for latest timestamp
+- Applies HMM inference on single observation
+- Biases p_state using latest return (heuristic, no retraining)
+- Prints FULL p_state and p_next probabilities
 - Publishes inference JSON to Pub/Sub
 """
 
@@ -33,8 +36,7 @@ GCS_MODEL_BLOB = "models/hmm_spy_5min.joblib"
 
 BASE_DIR = Path(__file__).resolve().parents[0]
 LOCAL_MODEL_PATH = BASE_DIR / "artifacts" / "hmm_spy_5min.joblib"
-
-KEY_PATH = BASE_DIR/"KEY.json"
+KEY_PATH = BASE_DIR / "KEY.json"
 
 REST_BASE = "https://api.twelvedata.com/time_series"
 TWELVE_API_KEY = "87bd43db037d44059f94c62f5da145dd"
@@ -43,10 +45,15 @@ SYMBOL = "SPY"
 INTERVAL = "5min"
 
 ROLLING_KEEP = 220
-POSTERIOR_TAIL = 50
-ALPHA = 0.85
-
 IGNORE_OLD_MESSAGES = True
+
+# RETURN BIAS SETTINGS
+RETURN_ALPHA = 0.7      # weight of HMM posterior
+RETURN_STRENGTH = 0.3   # strength of return influence
+
+# map regimes (ADJUST IF YOUR ORDER IS DIFFERENT)
+BULLISH_STATES = [1, 4]
+BEARISH_STATES = [0, 3]
 
 
 # ============================================================
@@ -71,17 +78,6 @@ topic_path = publisher.topic_path(PROJECT_ID, INFERENCE_TOPIC_ID)
 # ============================================================
 # HELPERS
 # ============================================================
-def make_empty_bars_df() -> pd.DataFrame:
-    return pd.DataFrame({
-        "datetime": pd.Series(dtype="datetime64[ns]"),
-        "open": pd.Series(dtype="float64"),
-        "high": pd.Series(dtype="float64"),
-        "low": pd.Series(dtype="float64"),
-        "close": pd.Series(dtype="float64"),
-        "volume": pd.Series(dtype="float64"),
-    })
-
-
 def parse_dt(x: Any) -> pd.Timestamp:
     ts = pd.to_datetime(str(x), utc=True)
     return ts.tz_convert(None)
@@ -118,101 +114,135 @@ feature_cols = list(bundle["feature_cols"])
 STATE_NAMES = bundle["state_names"]
 
 A = np.asarray(hmm.transmat_)
-K = hmm.n_components
-
-
-# ============================================================
-# STATIONARY INIT + SMOOTHING
-# ============================================================
-def stationary_distribution(A, tol=1e-10):
-    p = np.ones(len(A)) / len(A)
-    for _ in range(10_000):
-        p2 = p @ A
-        if np.linalg.norm(p2 - p) < tol:
-            break
-        p = p2
-    return p
-
-
-stationary_prob = stationary_distribution(A)
-prev_prob: Optional[np.ndarray] = None
-
-
-def smooth_probs(p: np.ndarray) -> np.ndarray:
-    global prev_prob
-    if prev_prob is None:
-        prev_prob = stationary_prob.copy()
-
-    out = ALPHA * prev_prob + (1 - ALPHA) * p
-    out /= out.sum()
-    prev_prob = out
-    return out
-
-
-# ============================================================
-# FEATURES (TRAINING-COMPATIBLE)
-# ============================================================
-def compute_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy().sort_values("datetime").reset_index(drop=True)
-    eps = 1e-12
-
-    df["log_close"] = np.log(df["close"] + eps)
-    df["ret_1"] = df["log_close"].diff()
-    df["ret_12"] = df["log_close"].diff(12)
-    df["ret_48"] = df["log_close"].diff(48)
-
-    df["rv_12"] = df["ret_1"].rolling(12).std(ddof=1)
-    df["rv_48"] = df["ret_1"].rolling(48).std(ddof=1)
-    df["rv_156"] = df["ret_1"].rolling(156).std(ddof=1)
-
-    df["log_rv_12"] = np.log(df["rv_12"] + eps)
-    df["log_rv_48"] = np.log(df["rv_48"] + eps)
-    df["log_rv_156"] = np.log(df["rv_156"] + eps)
-
-    ma12 = df["close"].rolling(12).mean()
-    ma48 = df["close"].rolling(48).mean()
-    df["ma_ratio_12"] = df["close"] / (ma12 + eps)
-    df["ma_ratio_48"] = df["close"] / (ma48 + eps)
-
-    df["range_1"] = (df["high"] - df["low"]) / (df["close"] + eps)
-
-    v = df["volume"]
-    df["vol_z_48"] = (v - v.rolling(48).mean()) / (v.rolling(48).std(ddof=1) + eps)
-
-    df["log_dollar_vol"] = np.log(df["close"] * v + eps)
-    df["jump_score"] = np.abs(df["ret_1"]) / (df["rv_48"] + eps)
-
-    return df
 
 
 # ============================================================
 # FORMATTERS
 # ============================================================
 def fmt_probs(p: np.ndarray) -> str:
-    return " | ".join(f"{STATE_NAMES[i]}={p[i]*100:5.2f}%" for i in range(len(p)))
-
-
-def probs_dict(p: np.ndarray) -> Dict[str, float]:
-    return {STATE_NAMES[i]: float(p[i]) for i in range(len(p))}
+    return " | ".join(
+        f"{STATE_NAMES[i]}={p[i]*100:5.2f}%"
+        for i in range(len(p))
+    )
 
 
 # ============================================================
-# INFERENCE
+# RETURN-BASED HEURISTIC
 # ============================================================
-def infer(feats: pd.DataFrame) -> Optional[dict]:
-    valid = feats.dropna(subset=feature_cols)
-    if len(valid) == 0:
+def return_bias_vector(
+    ret_1: float,
+    K: int,
+    bullish_states: list[int],
+    bearish_states: list[int],
+    strength: float,
+) -> np.ndarray:
+    bias = np.ones(K)
+
+    if ret_1 > 0:
+        for s in bullish_states:
+            bias[s] += strength
+        for s in bearish_states:
+            bias[s] -= strength
+    elif ret_1 < 0:
+        for s in bearish_states:
+            bias[s] += strength
+        for s in bullish_states:
+            bias[s] -= strength
+
+    bias = np.clip(bias, 0.1, None)
+    return bias / bias.sum()
+
+
+def mix_with_return(
+    p_state: np.ndarray,
+    ret_1: float,
+    alpha: float,
+    strength: float,
+) -> np.ndarray:
+    bias = return_bias_vector(
+        ret_1,
+        K=len(p_state),
+        bullish_states=BULLISH_STATES,
+        bearish_states=BEARISH_STATES,
+        strength=strength,
+    )
+    p = alpha * p_state + (1 - alpha) * bias
+    return p / p.sum()
+
+
+# ============================================================
+# FEATURE COMPUTATION (LAST TIMESTAMP ONLY)
+# ============================================================
+def compute_last_features(df: pd.DataFrame) -> Optional[pd.Series]:
+    if len(df) < 156:
         return None
 
-    X = scaler.transform(valid.tail(POSTERIOR_TAIL)[feature_cols].values)
+    df = df.sort_values("datetime").reset_index(drop=True)
+    eps = 1e-12
+    i = len(df) - 1
+
+    log_close = np.log(df["close"] + eps)
+    ret_1 = log_close.diff()
+
+    row = {}
+
+    row["ret_1"] = ret_1.iloc[i]
+    row["ret_12"] = log_close.iloc[i] - log_close.iloc[i - 12]
+    row["ret_48"] = log_close.iloc[i] - log_close.iloc[i - 48]
+
+    rv_12 = ret_1.iloc[i-11:i+1].std(ddof=1)
+    rv_48 = ret_1.iloc[i-47:i+1].std(ddof=1)
+    rv_156 = ret_1.iloc[i-155:i+1].std(ddof=1)
+
+    row["log_rv_12"] = np.log(rv_12 + eps)
+    row["log_rv_48"] = np.log(rv_48 + eps)
+    row["log_rv_156"] = np.log(rv_156 + eps)
+
+    ma12 = df["close"].iloc[i-11:i+1].mean()
+    ma48 = df["close"].iloc[i-47:i+1].mean()
+
+    row["ma_ratio_12"] = df["close"].iloc[i] / (ma12 + eps)
+    row["ma_ratio_48"] = df["close"].iloc[i] / (ma48 + eps)
+
+    row["range_1"] = (df["high"].iloc[i] - df["low"].iloc[i]) / (df["close"].iloc[i] + eps)
+
+    v = df["volume"]
+    v_mean = v.iloc[i-47:i+1].mean()
+    v_std = v.iloc[i-47:i+1].std(ddof=1)
+
+    row["vol_z_48"] = (v.iloc[i] - v_mean) / (v_std + eps)
+    row["log_dollar_vol"] = np.log(df["close"].iloc[i] * v.iloc[i] + eps)
+    row["jump_score"] = abs(ret_1.iloc[i]) / (rv_48 + eps)
+
+    return pd.Series(row)
+
+
+# ============================================================
+# INFERENCE (RETURN-BIASED)
+# ============================================================
+def infer_last_bar(bars: pd.DataFrame) -> Optional[dict]:
+    feat = compute_last_features(bars)
+    if feat is None:
+        return None
+
+    X = scaler.transform(feat[feature_cols].values.reshape(1, -1))
     _, post = hmm.score_samples(X)
 
-    p_state = smooth_probs(post[-1])
+    p_state = post[0]
+
+    # APPLY RETURN HEURISTIC
+    p_state = mix_with_return(
+        p_state,
+        ret_1=feat["ret_1"],
+        alpha=RETURN_ALPHA,
+        strength=RETURN_STRENGTH,
+    )
+
     p_next = p_state @ A
 
     cs = int(np.argmax(p_state))
     ns = int(np.argmax(p_next))
-    last = valid.iloc[-1]
+    last = bars.iloc[-1]
 
     return {
         "datetime": str(last["datetime"]),
@@ -220,11 +250,11 @@ def infer(feats: pd.DataFrame) -> Optional[dict]:
         "current_state": cs,
         "current_state_name": STATE_NAMES[cs],
         "current_prob": float(p_state[cs]),
-        "p_state": probs_dict(p_state),
+        "p_state": {STATE_NAMES[i]: float(p_state[i]) for i in range(len(p_state))},
         "next_state": ns,
         "next_state_name": STATE_NAMES[ns],
         "next_prob": float(p_next[ns]),
-        "p_next": probs_dict(p_next),
+        "p_next": {STATE_NAMES[i]: float(p_next[i]) for i in range(len(p_next))},
     }
 
 
@@ -241,20 +271,18 @@ def fetch_recent_bars():
     }
     r = requests.get(REST_BASE, params=params, timeout=30)
     r.raise_for_status()
+
     df = pd.DataFrame(r.json()["values"])
     df["datetime"] = pd.to_datetime(df["datetime"])
     for c in ["open", "high", "low", "close", "volume"]:
         df[c] = pd.to_numeric(df[c])
+
     return df.sort_values("datetime")[["datetime", "open", "high", "low", "close", "volume"]]
 
 
-bars = make_empty_bars_df()
-latest_dt: Optional[pd.Timestamp] = None
-
-print(f"Bootstrapping {ROLLING_KEEP} bars...")
 bars = fetch_recent_bars()
 latest_dt = bars["datetime"].iloc[-1]
-print(f"Bootstrapped. Latest bar: {latest_dt}")
+print(f"Bootstrapped {len(bars)} bars. Latest: {latest_dt}")
 
 
 # ============================================================
@@ -265,6 +293,7 @@ def callback(message):
 
     try:
         bar = normalize_event(json.loads(message.data.decode()))
+
         if IGNORE_OLD_MESSAGES and bar["datetime"] <= latest_dt:
             message.ack()
             return
@@ -273,16 +302,28 @@ def callback(message):
         bars = bars.drop_duplicates("datetime").sort_values("datetime").tail(ROLLING_KEEP)
         latest_dt = bars["datetime"].iloc[-1]
 
-        feats = compute_features(bars)
-        out = infer(feats)
+        out = infer_last_bar(bars)
 
         if out:
             print("\n" + "=" * 90)
             print(f"{out['datetime']} | Close={out['close']:.2f}")
-            print(f"Current: {out['current_state']} ({out['current_state_name']}) prob={out['current_prob']*100:.2f}%")
-            print("p_state:", fmt_probs(np.array(list(out["p_state"].values()))))
-            print(f"Next:    {out['next_state']} ({out['next_state_name']}) prob={out['next_prob']*100:.2f}%")
-            print("p_next :", fmt_probs(np.array(list(out["p_next"].values()))))
+
+            p_state = np.array(list(out["p_state"].values()))
+            p_next = np.array(list(out["p_next"].values()))
+
+            print(
+                f"Current: {out['current_state']} "
+                f"({out['current_state_name']}) "
+                f"prob={out['current_prob']*100:.2f}%"
+            )
+            print("p_state:", fmt_probs(p_state))
+
+            print(
+                f"Next:    {out['next_state']} "
+                f"({out['next_state_name']}) "
+                f"prob={out['next_prob']*100:.2f}%"
+            )
+            print("p_next :", fmt_probs(p_next))
             print("=" * 90)
 
             publisher.publish(topic_path, json.dumps(out).encode())
