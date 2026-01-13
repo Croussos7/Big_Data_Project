@@ -50,7 +50,7 @@ All files and folders must remain in the same BASE directory. Moving files outsi
    
 4. Execution
 
-Do not rerun the training or saving model script. The model should be saved in the denoted bucket.
+Do not rerun the training or the saving artifacts script. The model should be saved in the denoted bucket.
 
 b) *Run the Publisher* =>
 Starts streaming market data (e.g. SPY).
