@@ -5,10 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f7f974e2-6fda-4328-a169-b4faa7eaa7fe" name="Changes" comment="Fix Paths">
-      <change afterPath="$PROJECT_DIR$/Save_Artifacts.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" beforeDir="false" afterPath="$PROJECT_DIR$/Project_Streaming_Data_Model2.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Publisher.py" beforeDir="false" afterPath="$PROJECT_DIR$/Publisher.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Save_Artifacts.py" beforeDir="false" afterPath="$PROJECT_DIR$/Save_Artifacts.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Subscriber.py" beforeDir="false" afterPath="$PROJECT_DIR$/Subscriber.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -58,7 +56,7 @@
       <recent name="C:\Users\crous\MSc DATA SCIENCE\BIG DATA\Big_Data_Project" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Save_Artifacts">
+  <component name="RunManager" selected="Python.Subscriber">
     <configuration name="Publisher" type="PythonConfigurationType" factoryName="Python" singleton="false">
       <module name="Big_Data_Project" />
       <option name="ENV_FILES" value="" />
@@ -358,7 +356,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768049557305</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="Fix Paths">
+      <option name="closed" value="true" />
+      <created>1768252660019</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1768252660019</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

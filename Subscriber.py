@@ -28,7 +28,7 @@ PROJECT_ID = "big-data-480618"
 SUBSCRIPTION_ID = "sub-model2"
 INFERENCE_TOPIC_ID = "spy-regime-inference-v2"
 
-GCS_BUCKET = "project_bucket_big_data1"
+GCS_BUCKET = "project-bucket-cr"
 GCS_MODEL_BLOB = "models/hmm_spy_5min.joblib"
 
 BASE_DIR = Path(__file__).resolve().parents[0]

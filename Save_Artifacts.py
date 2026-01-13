@@ -33,12 +33,12 @@ print("Loaded model bundle with keys:", list(bundle.keys()))
 # Define regime names (POST-training interpretation)
 # --------------------------------------------------
 state_names = [
-    "Mild Bullish / Moderate Vol",
-    "Very Calm / Low-Activity Regime",
-    "Event-Driven / Liquidity Shock",
-    "Quiet Bearish Drift",
-    "Neutral / Transitional",
-    "Bullish High-Volatility / Momentum Expansion",
+    "Bearish Liquidity Pressure",
+    "High-Volatility Bullish Expansion",
+    "Calm / Drift",
+    "Stress / Sell off",
+    "Calm Bullish Drift",
+    "Transitionary / Low Volume",
 ]
 
 # Safety check
