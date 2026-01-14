@@ -1,14 +1,3 @@
-"""
-SUBSCRIBER + ONLINE INFERENCE (RETURN-BIASED POSTERIOR)
-
-- Subscribes to bar stream
-- Bootstraps recent bars
-- Computes rolling features ONLY for latest timestamp
-- Applies HMM inference on single observation
-- Biases p_state using latest return (heuristic, no retraining)
-- Prints FULL p_state and p_next probabilities
-- Publishes inference JSON to Pub/Sub
-"""
 
 from __future__ import annotations
 
@@ -47,11 +36,14 @@ INTERVAL = "5min"
 ROLLING_KEEP = 220
 IGNORE_OLD_MESSAGES = True
 
-# RETURN BIAS SETTINGS
-RETURN_ALPHA = 0.7      # weight of HMM posterior
-RETURN_STRENGTH = 0.3   # strength of return influence
+# RETURN HEURISTIC SETTINGS
+RETURN_ALPHA = 0.7          # weight of HMM posterior
+RETURN_STRENGTH = 0.4       # max heuristic strength
+RETURN_SCALE = 0.002        # ~0.2% move saturates effect
 
-# map regimes (ADJUST IF YOUR ORDER IS DIFFERENT)
+NOISE_STD = 0.005            # tiny noise (visual symmetry breaker)
+
+# Regime mapping (adjust if needed)
 BULLISH_STATES = [1, 4]
 BEARISH_STATES = [0, 3]
 
@@ -127,46 +119,50 @@ def fmt_probs(p: np.ndarray) -> str:
 
 
 # ============================================================
-# RETURN-BASED HEURISTIC
+# RETURN-BASED HEURISTIC (MAGNITUDE AWARE)
 # ============================================================
 def return_bias_vector(
     ret_1: float,
     K: int,
-    bullish_states: list[int],
-    bearish_states: list[int],
     strength: float,
 ) -> np.ndarray:
     bias = np.ones(K)
 
     if ret_1 > 0:
-        for s in bullish_states:
+        for s in BULLISH_STATES:
             bias[s] += strength
-        for s in bearish_states:
+        for s in BEARISH_STATES:
             bias[s] -= strength
     elif ret_1 < 0:
-        for s in bearish_states:
+        for s in BEARISH_STATES:
             bias[s] += strength
-        for s in bullish_states:
+        for s in BULLISH_STATES:
             bias[s] -= strength
 
     bias = np.clip(bias, 0.1, None)
     return bias / bias.sum()
 
 
-def mix_with_return(
+def mix_with_return_and_noise(
     p_state: np.ndarray,
     ret_1: float,
-    alpha: float,
-    strength: float,
 ) -> np.ndarray:
+    # ---- Fix 1: magnitude-scaled strength
+    scale = min(abs(ret_1) / RETURN_SCALE, 1.0)
+    effective_strength = RETURN_STRENGTH * scale
+
     bias = return_bias_vector(
-        ret_1,
+        ret_1=ret_1,
         K=len(p_state),
-        bullish_states=BULLISH_STATES,
-        bearish_states=BEARISH_STATES,
-        strength=strength,
+        strength=effective_strength,
     )
-    p = alpha * p_state + (1 - alpha) * bias
+
+    p = RETURN_ALPHA * p_state + (1 - RETURN_ALPHA) * bias
+
+    # ---- Fix 2: tiny noise injection
+    noise = np.random.normal(0.0, NOISE_STD, size=len(p))
+    p = np.clip(p + noise, 1e-6, None)
+
     return p / p.sum()
 
 
@@ -218,7 +214,7 @@ def compute_last_features(df: pd.DataFrame) -> Optional[pd.Series]:
 
 
 # ============================================================
-# INFERENCE (RETURN-BIASED)
+# INFERENCE
 # ============================================================
 def infer_last_bar(bars: pd.DataFrame) -> Optional[dict]:
     feat = compute_last_features(bars)
@@ -228,14 +224,9 @@ def infer_last_bar(bars: pd.DataFrame) -> Optional[dict]:
     X = scaler.transform(feat[feature_cols].values.reshape(1, -1))
     _, post = hmm.score_samples(X)
 
-    p_state = post[0]
-
-    # APPLY RETURN HEURISTIC
-    p_state = mix_with_return(
-        p_state,
+    p_state = mix_with_return_and_noise(
+        p_state=post[0],
         ret_1=feat["ret_1"],
-        alpha=RETURN_ALPHA,
-        strength=RETURN_STRENGTH,
     )
 
     p_next = p_state @ A
