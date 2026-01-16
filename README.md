@@ -12,24 +12,23 @@ The system is designed to operate on streaming time-series data, perform **onlin
 
 The repository contains the following components:
 
-1. **Project_Streaming_Data_Model**  
+1. **Project_Streaming_Data_Model Script**  
    Training script used to compute features and train the Hidden Markov Model (HMM) on historical data.
 
-2. **Publisher**  
+2. **Publisher Script**  
    Publishes streaming market data to a cloud messaging topic, enabling real-time processing.
 
-3. **Subscriber**  
+3. **Subscriber Script**  
    Subscribes to the streaming data, performs feature computation and HMM inference, and publishes regime probabilities and next-state estimates to a GCS topic.  
    A separate subscription consumes this data and loads it directly into **BigQuery** for analysis and visualization.
 
-4. **Save Artifacts**  
+4. **Save_Artifacts Script**  
    Names regimes, saves artifacts and uploads to Google Cloud
 
 5. **Saved Artifacts**  
    Contains trained model artifacts (e.g. serialized HMM models) used during live inference.
 
-6. **GCS Service Account Key**  
-   Used to authenticate and upload data and artifacts to **Google Cloud Storage (GCS)**.
+- The **GCS Service Account Key** will be attached in the submission. It is used to authenticate and upload data and artifacts to **Google Cloud Storage (GCS)**.
 
 ---
 ### Considerations and Usage
