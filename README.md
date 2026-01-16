@@ -26,14 +26,14 @@ The repository contains the following components:
    Names regimes, saves artifacts and uploads to Google Cloud
 
 5. **Saved Artifacts**  
-   Contains trained model artifacts (e.g. serialized HMM models) used during live inference.
+   Contains trained model artifacts (e.g. serialized HMM models) used during live inference. They are already uploaded in GCS the scripts pull them from there so theoretically you shouldn't use them manually.
 
 - The **GCS Service Account Key** will be attached in the submission. It is used to authenticate and upload data and artifacts to **Google Cloud Storage (GCS)**.
 
 ---
 ### Considerations and Usage
 
-1. All scripts resolve paths relative to the BASE directory, defined as:
+#### 1. All scripts resolve paths relative to the BASE directory, defined as =>
 
 ```
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -45,17 +45,18 @@ KEY_PATH = BASE_DIR / "big-data-480618-a0ab1a62384c.json"
 ```
 All files and folders must remain in the same BASE directory. Moving files outside this structure will break pathing in the scripts.
 
-2. Environment Setup => Python 3.9+ is recommended. Required packages are installed via pip (see training script first few lines). The GCS Service Account Key, should be named ***"KEY.json"***
+#### 2. Environment Setup => 
+Python 3.9+ is recommended. Required packages are installed via pip (see training script first few lines). The GCS Service Account Key, should be named ***"KEY.json"***
    
-4. Execution
+#### 3. Execution =>
 
-Do not rerun the training or the saving artifacts script. The model should be saved in the denoted bucket.
+- Do not rerun the training or the saving artifacts script. The model should be saved in the GCS bucket and pulled from the subscriber script, applying the model using the published new candles.
 
-b) *Run the Publisher* =>
+- *Run the Publisher* =>
 Starts streaming market data (e.g. SPY).
 Candle updates occur every 5 minutes when the market is open.
 
-c) *Run the Subscriber* =>
+- *Run the Subscriber* =>
 Must run in parallel with the Publisher.
 The Subscriber consumes published data, performs inference, and publishes results into the inference topic.
 
