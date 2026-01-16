@@ -28,7 +28,8 @@ The repository contains the following components:
 5. **Saved Artifacts**  
    Contains trained model artifacts (e.g. serialized HMM models) used during live inference. They are already uploaded in GCS the scripts pull them from there so theoretically you shouldn't use them manually.
 
-- The **GCS Service Account Key** will be attached in the submission. It is used to authenticate and upload data and artifacts to **Google Cloud Storage (GCS)**.
+6. **GCS Service Account Key**
+   It is used to authenticate and upload data and artifacts to **Google Cloud Storage (GCS)**.
 
 ---
 ### Considerations and Usage
